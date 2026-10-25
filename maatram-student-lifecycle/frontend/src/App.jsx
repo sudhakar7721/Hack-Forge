@@ -1,0 +1,1129 @@
+
+import React, { useEffect, useState } from 'react';
+import {
+  Activity,
+  ArrowRight,
+  BookOpen,
+  BriefcaseBusiness,
+  CheckCircle2,
+  GraduationCap,
+  HeartHandshake,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  Search,
+  ShieldCheck,
+  Users,
+  X,
+  KeyRound,
+  Phone,
+  Plus,
+  RefreshCw
+} from 'lucide-react';
+
+const API = '/api';
+
+const roles = [
+  { id: 'student', label: 'Student', icon: GraduationCap, desc: 'Your learning journey' },
+  { id: 'alumni', label: 'Alumni', icon: BriefcaseBusiness, desc: 'Career & community' },
+  { id: 'admin', label: 'Admin', icon: ShieldCheck, desc: 'Manage the platform' },
+  { id: 'core', label: 'Core Members', icon: Users, desc: 'Community operations' }
+];
+
+const demo = {
+  student: ['student', 'student-50'],
+  alumni: ['alumni', 'alumni-100'],
+  admin: ['admin', 'admin-5'],
+  core: ['core', 'core-12']
+};
+
+const emptyStudent = {
+  full_name: '',
+  age: '',
+  dob: '',
+  phone: '',
+  email: '',
+  parent_name: '',
+  address: '',
+  previous_school: '',
+  tenth_mark: '',
+  tenth_percentage: '',
+  twelfth_mark: '',
+  twelfth_percentage: '',
+  higher_secondary_group: '',
+  applied_domain: 'Arts & Science',
+  application_number: '',
+  application_details: '',
+  tele_verification_comment: '',
+  physical_verification_comment: '',
+  application_status: 'Waiting List',
+  admission_date: '',
+  college: '',
+  course: '',
+  academic_year: '',
+  residence_type: 'Day Scholar',
+  fees_details: '',
+  anchor_name: '',
+  mentor_name: '',
+  zone_incharge: '',
+  academic_details: '',
+  self_learning_details: '',
+  activities: '',
+  pv_volunteering: '',
+  tv_volunteering: '',
+  school_visits: '',
+  other_volunteering: ''
+};
+
+async function api(path, opts = {}) {
+  const r = await fetch(API + path, {
+    headers: {
+      'Content-Type': 'application/json',
+      ...(opts.headers || {})
+    },
+    ...opts
+  });
+
+  const d = await r.json().catch(() => ({
+    detail: 'Unexpected server response'
+  }));
+
+  if (!r.ok) {
+    throw Error(d.detail || 'Request failed');
+  }
+
+  return d;
+}
+
+function App() {
+  const [role, setRole] = useState('student');
+  const [user, setUser] = useState(null);
+  const [username, setUsername] = useState('student');
+  const [password, setPassword] = useState('student-50');
+  const [showForgot, setShowForgot] = useState(false);
+  const [phone, setPhone] = useState('');
+  const [otp, setOtp] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [forgotUser, setForgotUser] = useState('student');
+  const [otpReady, setOtpReady] = useState(false);
+
+  const [page, setPage] = useState('Dashboard');
+  const [students, setStudents] = useState([]);
+  const [alumni, setAlumni] = useState([]);
+  const [stats, setStats] = useState({});
+  const [query, setQuery] = useState('');
+  const [selected, setSelected] = useState(null);
+  const [form, setForm] = useState(emptyStudent);
+  const [modal, setModal] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+  const [mobileNav, setMobileNav] = useState(false);
+
+  async function load() {
+    try {
+      const [s, a, st] = await Promise.all([
+        api('/students'),
+        api('/alumni'),
+        api('/dashboard/' + user.role)
+      ]);
+
+      setStudents(s);
+      setAlumni(a);
+      setStats(st);
+      setError('');
+    } catch (e) {
+      setError(e.message + ' — check the FastAPI backend.');
+    }
+  }
+
+  useEffect(() => {
+    if (user) load();
+  }, [user]);
+
+  const menu =
+    user?.role === 'student'
+      ? ['Dashboard', 'My Details', 'Application', 'Admission', 'Academics', 'Volunteering']
+      : user?.role === 'alumni'
+        ? ['Dashboard', 'My Details', 'Career Profile', 'Volunteering']
+        : user?.role === 'admin'
+          ? ['Dashboard', 'Students', 'Alumni', 'Applications', 'Reports']
+          : ['Dashboard', 'Students', 'Alumni', 'Volunteering', 'Activities', 'Event Log'];
+
+  async function signIn(e) {
+    e.preventDefault();
+    setError('');
+    setBusy(true);
+
+    try {
+      const u = await api('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ username, password, role })
+      });
+
+      setUser(u);
+      setPage('Dashboard');
+      setMessage('Welcome back, ' + u.display_name);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function pickRole(r) {
+    setRole(r);
+    setUsername(demo[r][0]);
+    setPassword(demo[r][1]);
+    setError('');
+  }
+
+  async function sendOtp(e) {
+    e.preventDefault();
+
+    try {
+      const r = await api('/auth/forgot-password', {
+        method: 'POST',
+        body: JSON.stringify({ phone })
+      });
+
+      setOtpReady(true);
+      setMessage('Demo OTP: ' + r.demo_otp + ' (SMS is not configured)');
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  async function reset(e) {
+    e.preventDefault();
+
+    try {
+      const r = await api('/auth/reset-password', {
+        method: 'POST',
+        body: JSON.stringify({
+          username: forgotUser,
+          otp,
+          new_password: newPassword
+        })
+      });
+
+      setMessage(r.message);
+      setShowForgot(false);
+      setOtpReady(false);
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  async function saveStudent(e) {
+    e.preventDefault();
+    setBusy(true);
+
+    try {
+      const payload = {
+        ...form,
+        age: form.age ? Number(form.age) : null,
+        tenth_mark: form.tenth_mark ? Number(form.tenth_mark) : null,
+        tenth_percentage: form.tenth_percentage ? Number(form.tenth_percentage) : null,
+        twelfth_mark: form.twelfth_mark ? Number(form.twelfth_mark) : null,
+        twelfth_percentage: form.twelfth_percentage ? Number(form.twelfth_percentage) : null
+      };
+
+      if (selected) {
+        await api('/students/' + selected.id, {
+          method: 'PUT',
+          body: JSON.stringify(payload)
+        });
+      } else {
+        await api('/students', {
+          method: 'POST',
+          body: JSON.stringify(payload)
+        });
+      }
+
+      setModal(false);
+      setSelected(null);
+      setForm(emptyStudent);
+      setMessage('Student record saved');
+      await load();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const filtered = students.filter(s =>
+    (s.full_name + ' ' + s.application_number + ' ' + s.email)
+      .toLowerCase()
+      .includes(query.toLowerCase())
+  );
+
+  if (!user) {
+    return (
+      <div className="login-shell">
+        <section className="login-hero">
+          <div className="brand">
+            <div className="brand-icon"><Activity /></div>
+            <div>
+              <strong>maatram<span>.</span></strong>
+              <small>STUDENT LIFECYCLE</small>
+            </div>
+          </div>
+
+          <div className="hero-copy">
+            <div className="eyebrow">ONE COMMUNITY. EVERY JOURNEY.</div>
+            <h1>Every student story,<br /><em>connected.</em></h1>
+            <p>
+              A trusted space to manage applications, student milestones,
+              volunteering and alumni careers — all in one place.
+            </p>
+            <div className="hero-points">
+              <div><CheckCircle2 /> One connected student record</div>
+              <div><CheckCircle2 /> Transparent lifecycle history</div>
+              <div><CheckCircle2 /> Student-to-alumni continuity</div>
+            </div>
+          </div>
+
+          <div className="hero-footer">
+            MAATRAM COMMUNITY <span>•</span> STUDENT LIFECYCLE PLATFORM
+          </div>
+          <div className="yellow-orb orb1" />
+          <div className="yellow-orb orb2" />
+        </section>
+
+        <section className="login-panel">
+          <div className="login-card">
+            <div className="mobile-brand">
+              <div className="brand-icon"><Activity /></div>
+              <b>Maatram<span>.</span></b>
+            </div>
+
+            <div className="eyebrow">WELCOME TO MAATRAM</div>
+            <h2>Sign in to continue</h2>
+            <p className="muted">
+              Choose your account type to open your workspace.
+            </p>
+
+            <div className="role-grid">
+              {roles.map(r => (
+                <button
+                  type="button"
+                  key={r.id}
+                  onClick={() => pickRole(r.id)}
+                  className={'role-card ' + (role === r.id ? 'selected' : '')}
+                >
+                  <r.icon size={20} />
+                  <b>{r.label}</b>
+                  <small>{r.desc}</small>
+                </button>
+              ))}
+            </div>
+
+            <form onSubmit={signIn} className="login-form">
+              <label>
+                Username
+                <input
+                  value={username}
+                  onChange={e => setUsername(e.target.value)}
+                  required
+                  autoComplete="username"
+                />
+              </label>
+
+              <label>
+                Password
+                <input
+                  type="password"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  required
+                  autoComplete="current-password"
+                />
+              </label>
+
+              <button
+                className="forgot-link"
+                type="button"
+                onClick={() => {
+                  setShowForgot(true);
+                  setError('');
+                  setForgotUser(username);
+                }}
+              >
+                Forgot password?
+              </button>
+
+              <button className="primary-btn full" disabled={busy}>
+                {busy ? 'Signing in…' : 'Sign in'} <ArrowRight size={17} />
+              </button>
+            </form>
+
+            {error && <div className="error-msg">{error}</div>}
+            {message && <div className="info-msg">{message}</div>}
+
+            <div className="demo-note">
+              <KeyRound size={16} />
+              <div>
+                <b>Demo access</b>
+                <small>Select a role to auto-fill its demo credentials.</small>
+              </div>
+            </div>
+
+            <div className="privacy">
+              By signing in, you agree to follow Maatram’s data privacy guidelines.
+            </div>
+          </div>
+        </section>
+
+        {showForgot && (
+          <div className="modal-backdrop">
+            <div className="modal small-modal">
+              <button className="modal-close" onClick={() => setShowForgot(false)}>
+                <X />
+              </button>
+
+              <div className="modal-symbol"><Phone /></div>
+              <h2>Reset your password</h2>
+              <p className="muted">
+                Enter the phone number linked to your account. Demo mode
+                displays an OTP on screen.
+              </p>
+
+              <form onSubmit={otpReady ? reset : sendOtp} className="stack-form">
+                {!otpReady ? (
+                  <>
+                    <label>
+                      Phone number
+                      <input
+                        value={phone}
+                        onChange={e => setPhone(e.target.value)}
+                        placeholder="Enter registered phone number"
+                        required
+                      />
+                    </label>
+
+                    <label>
+                      Username
+                      <input
+                        value={forgotUser}
+                        onChange={e => setForgotUser(e.target.value)}
+                        required
+                      />
+                    </label>
+
+                    <button className="primary-btn full">Get demo OTP</button>
+                  </>
+                ) : (
+                  <>
+                    <label>
+                      Demo OTP
+                      <input
+                        value={otp}
+                        onChange={e => setOtp(e.target.value)}
+                        placeholder="123456"
+                        required
+                      />
+                    </label>
+
+                    <label>
+                      New password
+                      <input
+                        type="password"
+                        minLength="8"
+                        value={newPassword}
+                        onChange={e => setNewPassword(e.target.value)}
+                        required
+                      />
+                    </label>
+
+                    <button className="primary-btn full">Reset password</button>
+                  </>
+                )}
+              </form>
+
+              {error && <div className="error-msg">{error}</div>}
+              {message && <div className="info-msg">{message}</div>}
+              <small className="muted">
+                Production SMS delivery must be integrated separately.
+              </small>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="app-shell">
+      <aside className={'sidebar ' + (mobileNav ? 'open' : '')}>
+        <div className="brand">
+          <div className="brand-icon"><Activity /></div>
+          <div>
+            <strong>maatram<span>.</span></strong>
+            <small>STUDENT LIFECYCLE</small>
+          </div>
+          <button className="close-nav" onClick={() => setMobileNav(false)}>
+            <X />
+          </button>
+        </div>
+
+        <div className="workspace">
+          <div className="workspace-mark">M</div>
+          <div>
+            <b>Maatram Community</b>
+            <small>{user.role.toUpperCase()} WORKSPACE</small>
+          </div>
+        </div>
+
+        <div className="nav-label">WORKSPACE</div>
+
+        {menu.map((m, i) => (
+          <button
+            key={m}
+            className={'nav-item ' + (page === m ? 'active' : '')}
+            onClick={() => {
+              setPage(m);
+              setMobileNav(false);
+            }}
+          >
+            {i === 0 ? (
+              <LayoutDashboard />
+            ) : m.toLowerCase().includes('alumni') ||
+              m.toLowerCase().includes('career') ? (
+              <BriefcaseBusiness />
+            ) : m.toLowerCase().includes('volunteer') ||
+              m.toLowerCase().includes('activit') ? (
+              <HeartHandshake />
+            ) : m.toLowerCase().includes('academ') ||
+              m.toLowerCase().includes('admission') ? (
+              <BookOpen />
+            ) : (
+              <Users />
+            )}
+            {m}
+          </button>
+        ))}
+
+        <div className="sidebar-bottom">
+          <div className="privacy-card">
+            <ShieldCheck />
+            <div>
+              <b>Privacy first</b>
+              <small>Use demo data only</small>
+            </div>
+          </div>
+
+          <div className="signed-user">
+            <div className="user-dot">
+              {(user.display_name || 'M').slice(0, 1)}
+            </div>
+            <div>
+              <b>{user.display_name}</b>
+              <small>{user.role}</small>
+            </div>
+            <button
+              title="Sign out"
+              onClick={() => {
+                setUser(null);
+                setMessage('');
+                setError('');
+              }}
+            >
+              <LogOut />
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      {mobileNav && (
+        <div className="scrim" onClick={() => setMobileNav(false)} />
+      )}
+
+      <main className="main-area">
+        <header className="topbar">
+          <button className="hamburger" onClick={() => setMobileNav(true)}>
+            <Menu />
+          </button>
+          <div className="breadcrumb">
+            Maatram <span>/</span> <b>{page}</b>
+          </div>
+          <div className="top-user">
+            <span className="online-dot" />
+            {user.display_name}
+            <div className="top-avatar">{user.display_name?.slice(0, 1)}</div>
+          </div>
+        </header>
+
+        <div className="content">
+          <div className="page-heading">
+            <div>
+              <div className="eyebrow">{user.role.toUpperCase()} WORKSPACE</div>
+              <h1>{page === 'Dashboard' ? 'Welcome, ' + user.display_name : page}</h1>
+              <p>
+                {user.role === 'student'
+                  ? 'Your progress, profile and opportunities in one place.'
+                  : user.role === 'alumni'
+                    ? 'Stay connected to your journey and career.'
+                    : user.role === 'admin'
+                      ? 'Manage student and alumni records across Maatram.'
+                      : 'Support the student lifecycle and community activities.'}
+              </p>
+            </div>
+
+            {['admin', 'core'].includes(user.role) && (
+              <button
+                className="primary-btn"
+                onClick={() => {
+                  setSelected(null);
+                  setForm(emptyStudent);
+                  setModal(true);
+                }}
+              >
+                <Plus size={17} /> Add student
+              </button>
+            )}
+          </div>
+
+          {error && <div className="error-msg">{error}</div>}
+          {message && (
+            <div className="info-msg">
+              {message}
+              <button onClick={() => setMessage('')}>×</button>
+            </div>
+          )}
+
+          {page === 'Dashboard' && (
+            <>
+              <div className="welcome-banner">
+                <div>
+                  <span className="banner-chip">LIFECYCLE AT A GLANCE</span>
+                  <h2>One connected journey.<br />A stronger community.</h2>
+                  <p>
+                    From first application to meaningful career outcomes,
+                    keep every milestone connected.
+                  </p>
+                </div>
+                <div className="banner-icon">
+                  <GraduationCap size={76} />
+                  <span><Activity /></span>
+                </div>
+              </div>
+
+              <div className="stats-grid">
+                <Stat icon={Users} label="Student records" value={stats.students || students.length} hint="Across the lifecycle" />
+                <Stat icon={CheckCircle2} label="Approved applications" value={stats.approved || 0} hint="Admission status approved" />
+                <Stat icon={BookOpen} label="Waiting list" value={stats.waiting || 0} hint="Awaiting decision" />
+                <Stat icon={BriefcaseBusiness} label="Alumni records" value={stats.alumni || alumni.length} hint={(stats.placed_alumni || 0) + ' placed'} />
+              </div>
+
+              <div className="content-grid">
+                <section className="panel">
+                  <div className="panel-head">
+                    <div>
+                      <h3>Quick access</h3>
+                      <p>Open a module in your workspace</p>
+                    </div>
+                  </div>
+
+                  <div className="quick-grid">
+                    {menu.filter(x => x !== 'Dashboard').slice(0, 4).map((m, i) => (
+                      <button onClick={() => setPage(m)} className="quick-card" key={m}>
+                        <div className="quick-icon">
+                          {[
+                            <Users />,
+                            <BookOpen />,
+                            <HeartHandshake />,
+                            <BriefcaseBusiness />
+                          ][i]}
+                        </div>
+                        <b>{m}</b>
+                        <small>View and manage records</small>
+                        <ArrowRight />
+                      </button>
+                    ))}
+                  </div>
+                </section>
+
+                <section className="panel">
+                  <div className="panel-head">
+                    <div>
+                      <h3>Lifecycle overview</h3>
+                      <p>Key modules in the platform</p>
+                    </div>
+                  </div>
+
+                  {[
+                    'Admissions & verification',
+                    'Student academic journey',
+                    'Volunteering & activities',
+                    'Alumni career tracking'
+                  ].map((x, i) => (
+                    <div className="module-line" key={x}>
+                      <span className="module-num">0{i + 1}</span>
+                      <div>
+                        <b>{x}</b>
+                        <small>
+                          {[
+                            'Application status and verification notes',
+                            'College, course, mentor and progress',
+                            'PV, TV, school visits and more',
+                            'Placement status and current company'
+                          ][i]}
+                        </small>
+                      </div>
+                      <CheckCircle2 />
+                    </div>
+                  ))}
+                </section>
+              </div>
+            </>
+          )}
+
+          {[
+            'Students',
+            'My Details',
+            'Application',
+            'Admission',
+            'Academics',
+            'Volunteering',
+            'Applications'
+          ].includes(page) && (
+            <section className="panel">
+              <div className="panel-head">
+                <div>
+                  <h3>
+                    {page === 'Students'
+                      ? 'Student directory'
+                      : page === 'My Details'
+                        ? 'Student profile'
+                        : page + ' details'}
+                  </h3>
+                  <p>Student details, admission information and lifecycle records</p>
+                </div>
+
+                {['admin', 'core'].includes(user.role) && (
+                  <button
+                    className="outline-btn"
+                    onClick={() => {
+                      setSelected(null);
+                      setForm(emptyStudent);
+                      setModal(true);
+                    }}
+                  >
+                    <Plus size={16} /> New record
+                  </button>
+                )}
+              </div>
+
+              {page === 'Students' && (
+                <div className="search-row">
+                  <Search />
+                  <input
+                    placeholder="Search name, application number or email…"
+                    value={query}
+                    onChange={e => setQuery(e.target.value)}
+                  />
+                  <button onClick={load}><RefreshCw /></button>
+                </div>
+              )}
+
+              {page === 'My Details' && user.role === 'student' && (
+                <div className="info-msg">
+                  This demo account is linked to sample student data.
+                  Select a record below to view it.
+                </div>
+              )}
+
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>STUDENT</th>
+                      <th>APPLICATION NO.</th>
+                      <th>DOMAIN</th>
+                      <th>STATUS</th>
+                      <th>COLLEGE</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map(s => (
+                      <tr key={s.id}>
+                        <td>
+                          <b>{s.full_name || 'Unnamed'}</b>
+                          <small>{s.email}</small>
+                        </td>
+                        <td>{s.application_number || '—'}</td>
+                        <td>{s.applied_domain || '—'}</td>
+                        <td>
+                          <span className={'status ' + (s.application_status || '').toLowerCase().replaceAll(' ', '-')}>
+                            {s.application_status || '—'}
+                          </span>
+                        </td>
+                        <td>{s.college || '—'}</td>
+                        <td>
+                          <button
+                            className="text-btn"
+                            onClick={() => {
+                              setSelected(s);
+                              setForm(
+                                Object.fromEntries(
+                                  Object.keys(emptyStudent).map(k => [k, s[k] ?? ''])
+                                )
+                              );
+                              setModal(true);
+                            }}
+                          >
+                            View / Edit
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+
+                    {!filtered.length && (
+                      <tr>
+                        <td colSpan="6" className="empty">No student records found.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+
+          {['Alumni', 'Career Profile'].includes(page) && (
+            <section className="panel">
+              <div className="panel-head">
+                <div>
+                  <h3>Alumni career directory</h3>
+                  <p>Placement status, current company and student journey linkage</p>
+                </div>
+
+                {['admin', 'core'].includes(user.role) && (
+                  <button
+                    className="outline-btn"
+                    onClick={() => setMessage('Alumni create/edit API is available; use /docs to manage alumni records.')}
+                  >
+                    Manage alumni
+                  </button>
+                )}
+              </div>
+
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>ALUMNI</th>
+                      <th>PLACEMENT</th>
+                      <th>COMPANY</th>
+                      <th>JOB TITLE</th>
+                      <th>LOCATION</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {alumni.map(a => (
+                      <tr key={a.id}>
+                        <td>{a.full_name || '—'}</td>
+                        <td>
+                          <span className={'status ' + (a.placed ? 'approved' : 'waiting')}>
+                            {a.placed ? 'Placed' : 'Not placed'}
+                          </span>
+                        </td>
+                        <td>{a.current_company || '—'}</td>
+                        <td>{a.job_title || '—'}</td>
+                        <td>{a.work_location || '—'}</td>
+                      </tr>
+                    ))}
+
+                    {!alumni.length && (
+                      <tr>
+                        <td colSpan="5" className="empty">
+                          No alumni records yet. Use the API docs or add an alumni record through the API.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+
+          {['Reports', 'Activities', 'Event Log'].includes(page) && (
+            <section className="panel">
+              <div className="panel-head">
+                <div>
+                  <h3>{page}</h3>
+                  <p>Operational insights for Maatram community</p>
+                </div>
+              </div>
+
+              <div className="report-grid">
+                <div><b>{stats.students || 0}</b><span>Total student records</span></div>
+                <div><b>{stats.approved || 0}</b><span>Approved</span></div>
+                <div><b>{stats.waiting || 0}</b><span>Waiting list</span></div>
+                <div><b>{stats.placed_alumni || 0}</b><span>Placed alumni</span></div>
+              </div>
+
+              <p className="muted">
+                Lifecycle event history and extended reporting can be expanded
+                from this starter using the documented API and audit requirements.
+              </p>
+            </section>
+          )}
+
+          {['Academics', 'Admission'].includes(page) && (
+            <section className="panel">
+              <div className="panel-head">
+                <div>
+                  <h3>{page} & progress</h3>
+                  <p>
+                    College, course, academic progress, self-learning,
+                    mentoring and fee information
+                  </p>
+                </div>
+              </div>
+
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>STUDENT</th>
+                      <th>COLLEGE / COURSE</th>
+                      <th>ACADEMIC YEAR</th>
+                      <th>RESIDENCE</th>
+                      <th>MENTOR</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map(s => (
+                      <tr key={s.id}>
+                        <td>{s.full_name}</td>
+                        <td>{s.college || '—'}<small>{s.course || ''}</small></td>
+                        <td>{s.academic_year || '—'}</td>
+                        <td>{s.residence_type || '—'}</td>
+                        <td>{s.mentor_name || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+
+          {page === 'Volunteering' && (
+            <section className="panel">
+              <div className="panel-head">
+                <div>
+                  <h3>Volunteering records</h3>
+                  <p>PV, TV, school visits and other community contributions</p>
+                </div>
+              </div>
+
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>STUDENT</th>
+                      <th>PV</th>
+                      <th>TV</th>
+                      <th>SCHOOL VISITS</th>
+                      <th>OTHER</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map(s => (
+                      <tr key={s.id}>
+                        <td>{s.full_name}</td>
+                        <td>{s.pv_volunteering || '—'}</td>
+                        <td>{s.tv_volunteering || '—'}</td>
+                        <td>{s.school_visits || '—'}</td>
+                        <td>{s.other_volunteering || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+
+          <footer className="app-footer">
+            MAATRAM — STUDENT LIFECYCLE <span>•</span> Built for a connected student journey
+          </footer>
+        </div>
+      </main>
+
+      {modal && (
+        <div className="modal-backdrop">
+          <div className="modal large-modal">
+            <div className="modal-head">
+              <div>
+                <div className="eyebrow">STUDENT RECORD</div>
+                <h2>{selected ? 'Edit student' : 'Add student'}</h2>
+              </div>
+              <button className="modal-close" onClick={() => setModal(false)}>
+                <X />
+              </button>
+            </div>
+
+            <form onSubmit={saveStudent}>
+              <div className="form-sections">
+                {Object.entries({
+                  'Personal details': [
+                    'full_name', 'age', 'dob', 'phone', 'email',
+                    'parent_name', 'address', 'previous_school'
+                  ],
+                  'Academic history': [
+                    'tenth_mark', 'tenth_percentage', 'twelfth_mark',
+                    'twelfth_percentage', 'higher_secondary_group', 'applied_domain'
+                  ],
+                  'Application & verification': [
+                    'application_number', 'application_details',
+                    'tele_verification_comment', 'physical_verification_comment',
+                    'application_status'
+                  ],
+                  'Admission details': [
+                    'admission_date', 'college', 'course', 'academic_year',
+                    'residence_type', 'fees_details', 'anchor_name',
+                    'mentor_name', 'zone_incharge'
+                  ],
+                  'Academic & activities': [
+                    'academic_details', 'self_learning_details', 'activities'
+                  ],
+                  'Volunteering': [
+                    'pv_volunteering', 'tv_volunteering',
+                    'school_visits', 'other_volunteering'
+                  ]
+                }).map(([title, keys]) => (
+                  <section className="form-section" key={title}>
+                    <h3>{title}</h3>
+
+                    <div className="form-grid">
+                      {keys.map(k => (
+                        <label
+                          key={k}
+                          className={[
+                            'address',
+                            'application_details',
+                            'tele_verification_comment',
+                            'physical_verification_comment',
+                            'fees_details',
+                            'academic_details',
+                            'self_learning_details',
+                            'activities',
+                            'pv_volunteering',
+                            'tv_volunteering',
+                            'school_visits',
+                            'other_volunteering'
+                          ].includes(k) ? 'span-two' : ''}
+                        >
+                          {k.replaceAll('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}
+
+                          {k === 'applied_domain' ? (
+                            <select
+                              value={form[k]}
+                              onChange={e => setForm({ ...form, [k]: e.target.value })}
+                            >
+                              <option>Arts & Science</option>
+                              <option>Engineering</option>
+                              <option>Nursing</option>
+                              <option>Agriculture</option>
+                              <option>Other</option>
+                            </select>
+                          ) : k === 'application_status' ? (
+                            <select
+                              value={form[k]}
+                              onChange={e => setForm({ ...form, [k]: e.target.value })}
+                            >
+                              <option>Waiting List</option>
+                              <option>Approved</option>
+                              <option>Declined</option>
+                            </select>
+                          ) : k === 'residence_type' ? (
+                            <select
+                              value={form[k]}
+                              onChange={e => setForm({ ...form, [k]: e.target.value })}
+                            >
+                              <option>Day Scholar</option>
+                              <option>Hosteller</option>
+                            </select>
+                          ) : [
+                            'address',
+                            'application_details',
+                            'tele_verification_comment',
+                            'physical_verification_comment',
+                            'fees_details',
+                            'academic_details',
+                            'self_learning_details',
+                            'activities',
+                            'pv_volunteering',
+                            'tv_volunteering',
+                            'school_visits',
+                            'other_volunteering'
+                          ].includes(k) ? (
+                            <textarea
+                              rows="2"
+                              value={form[k]}
+                              onChange={e => setForm({ ...form, [k]: e.target.value })}
+                            />
+                          ) : (
+                            <input
+                              type={
+                                k === 'dob' || k === 'admission_date'
+                                  ? 'date'
+                                  : k === 'email'
+                                    ? 'email'
+                                    : k === 'age' || k.includes('mark') || k.includes('percentage')
+                                      ? 'number'
+                                      : 'text'
+                              }
+                              step={
+                                k.includes('mark') || k.includes('percentage')
+                                  ? '0.01'
+                                  : undefined
+                              }
+                              value={form[k]}
+                              onChange={e => setForm({ ...form, [k]: e.target.value })}
+                              required={k === 'full_name'}
+                            />
+                          )}
+                        </label>
+                      ))}
+                    </div>
+                  </section>
+                ))}
+              </div>
+
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="outline-btn"
+                  onClick={() => setModal(false)}
+                >
+                  Cancel
+                </button>
+
+                <button className="primary-btn" disabled={busy}>
+                  {busy ? 'Saving…' : 'Save student record'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Stat({ icon: Icon, label, value, hint }) {
+  return (
+    <div className="stat-card">
+      <div className="stat-icon"><Icon /></div>
+      <span>{label}</span>
+      <strong>{value}</strong>
+      <small>{hint}</small>
+    </div>
+  );
+}
+
+export default App;
