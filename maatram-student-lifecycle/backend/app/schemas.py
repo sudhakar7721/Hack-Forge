@@ -1,45 +1,53 @@
-from pydantic import BaseModel, Field
-from datetime import datetime
-from typing import Any
+from pydantic import BaseModel, ConfigDict, Field
+from typing import Optional
 
-class CycleIn(BaseModel):
-    name: str = Field(min_length=2, max_length=120)
-    year: int = Field(ge=2000, le=2100)
-    active: bool = True
+class LoginIn(BaseModel):
+    username: str
+    password: str
+    role: str
 
-class ApplicationIn(BaseModel):
-    cycle_id: int
-    applicant_name: str = Field(min_length=2, max_length=160)
-    email: str = Field(min_length=3, max_length=255)
+class StudentIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    full_name: str = ""
+    age: Optional[int] = None
+    dob: str = ""
     phone: str = ""
-    education: str = ""
-    statement: str = ""
-    status: str = "draft"
+    email: str = ""
+    parent_name: str = ""
+    address: str = ""
+    previous_school: str = ""
+    tenth_mark: Optional[float] = None
+    tenth_percentage: Optional[float] = None
+    twelfth_mark: Optional[float] = None
+    twelfth_percentage: Optional[float] = None
+    higher_secondary_group: str = ""
+    applied_domain: str = ""
+    application_number: str = ""
+    application_details: str = ""
+    tele_verification_comment: str = ""
+    physical_verification_comment: str = ""
+    application_status: str = "Waiting List"
+    admission_date: str = ""
+    college: str = ""
+    course: str = ""
+    academic_year: str = ""
+    residence_type: str = ""
+    fees_details: str = ""
+    anchor_name: str = ""
+    mentor_name: str = ""
+    zone_incharge: str = ""
+    academic_details: str = ""
+    self_learning_details: str = ""
+    activities: str = ""
+    pv_volunteering: str = ""
+    tv_volunteering: str = ""
+    school_visits: str = ""
+    other_volunteering: str = ""
 
-class BulkReviewIn(BaseModel):
-    application_ids: list[int] = Field(min_length=1)
-    action: str
-    reason: str | None = None
-
-class EventIn(BaseModel):
-    event_id: str = Field(min_length=4, max_length=100)
-    student_id: int
-    event_type: str
-    occurred_at: datetime
-    payload: dict[str, Any] = {}
-
-class CareerIn(BaseModel):
-    student_id: int
-    company_name: str
-    job_title: str
-    source: str
-    started_at: datetime | None = None
-    ended_at: datetime | None = None
-    is_current: bool = True
-
-class PresignIn(BaseModel):
-    owner_type: str = "application"
-    owner_id: int
-    filename: str
-    content_type: str
-    size_bytes: int
+class AlumniIn(BaseModel):
+    full_name: str = ""
+    placed: bool = False
+    current_company: str = ""
+    job_title: str = ""
+    work_location: str = ""
+    student_id: Optional[int] = None

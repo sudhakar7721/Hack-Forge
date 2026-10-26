@@ -1,72 +1,59 @@
-# Maatram Student Lifecycle Platform (MH26-05)
+# Maatram - Student Lifecycle
 
-A local prototype connecting admissions, student lifecycle events, alumni career history, and secure document uploads.
+A full-stack starter platform for managing the student journey from application to alumni.
 
 ## Stack
-- React + Vite frontend
-- FastAPI backend
-- SQLAlchemy relational models; SQLite by default for easy local setup, MySQL/MariaDB via `DATABASE_URL`
-- S3-compatible presigned uploads (MinIO supported)
-- Docker Compose
-- Pytest backend tests
+- Frontend: React + Vite
+- Backend: Python + FastAPI
+- Database: SQLAlchemy + SQLite by default (change `DATABASE_URL` for PostgreSQL/MySQL)
+- Authentication: demo role-based login; passwords are hashed in the database
+- Theme: yellow, black, white
 
-> Uses synthetic/demo data only. Do not enter real student personal information in a public demo.
+> Important: Demo credentials and OTP flow are for local demonstration only. The forgot-password OTP is a development demo (OTP `123456`); it does not send SMS. Before real use, integrate an SMS provider, add verified phone ownership, rate limits, secure deployment, backups, privacy consent, and professional security review. Use synthetic data while testing.
 
-## Run locally (Python + Node)
-### Backend
-```bash
+## Demo logins
+| Role | Username | Password |
+|---|---|---|
+| Student | `student` | `student-50` |
+| Alumni | `alumni` | `alumni-100` |
+| Admin | `admin` | `admin-5` |
+| Core Members | `core` | `core-12` |
+
+## Run on Windows (PowerShell)
+### 1. Backend
+Open terminal:
+```powershell
 cd backend
-python -m venv .venv
-# Windows: .venv\Scripts\activate
-# macOS/Linux: source .venv/bin/activate
+py -m venv .venv
+.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
-API docs: http://localhost:8000/docs
+API docs: http://127.0.0.1:8000/docs
 
-### Frontend
-In a second terminal:
-```bash
+### 2. Frontend (second terminal)
+```powershell
 cd frontend
 npm install
 npm run dev
 ```
-Open http://localhost:5173. The Vite dev server proxies `/api` to the backend.
+Open the URL Vite prints (normally http://localhost:5173).
 
-## Run with Docker Compose
-```bash
-docker compose up --build
-```
-Open http://localhost:5173. Compose starts the React app, FastAPI, MariaDB, and MinIO. MinIO console: http://localhost:9001 (minioadmin / minioadmin123).
+If Node/Vite reports native-binding errors, use Node.js 22 LTS, delete `frontend/node_modules`, then run `npm install` again.
 
-## Tests
-```bash
-cd backend
-pip install -r requirements.txt
-pytest -q
-```
+## Database
+SQLite database is created automatically at `backend/maatram.db`. Set `DATABASE_URL` before starting FastAPI to use another SQL database, for example:
+`DATABASE_URL=sqlite:///./maatram.db`
 
-## Features
-- **Admission cycles:** create drafts, submit applications, filter by cycle, shortlist, bulk select/reject, rejection reasons, audit history.
-- **Student lifecycle event log:** append-only event records; event and state changes commit together; duplicate `event_id` is idempotent; chronological replay and replay-from-time.
-- **Alumni career tracker:** career records retain source, normalized company names, and employment dates; query current alumni by company.
-- **Smart uploads:** server-side MIME/size checks and short-lived S3 presigned PUT URLs. If object storage is not configured, the API returns a clear configuration error.
-- **Linked records:** selected applicants are linked to a student record and an `ApplicantSelected` lifecycle event.
+## Features in this starter
+- Four role-specific sign-in types and dashboards
+- Demo credentials above
+- Forgot password demo flow (phone number + demo OTP)
+- Student profile, application, admission, academics, mentoring, fee, activities and volunteering fields
+- Alumni placement/company information and linked student details
+- Admin and core team workspaces with management summaries
+- Student list and create/update APIs
+- SQL persistence and hashed demo passwords
+- Responsive yellow/black/white UI
 
-## API highlights
-- `GET /api/health`
-- `GET/POST /api/cycles`
-- `GET/POST /api/applications`
-- `POST /api/applications/{id}/submit`
-- `POST /api/applications/bulk-review`
-- `GET /api/applications/{id}/audit`
-- `POST /api/events`, `GET /api/students/{id}/events`, `GET /api/students/{id}/replay?from_time=...`
-- `GET/POST /api/careers`, `GET /api/careers/search?company=...`
-- `POST /api/uploads/presign`, `POST /api/uploads/confirm`
-
-## Design notes / prototype limits
-- Event rows are append-only at the application layer. Production deployments should enforce append-only permissions at the database layer and use a transactional outbox if external side effects are added.
-- Replay returns reconstructed event-derived state. Events are ordered by `occurred_at`, then database ID to make ties deterministic; clients should supply stable event IDs and timestamps.
-- Company matching uses a small configurable alias map plus lowercase punctuation/whitespace normalization. Review aliases before production use.
-- Configure `MAX_UPLOAD_BYTES`, `ALLOWED_CONTENT_TYPES`, `S3_ENDPOINT_URL`, `S3_BUCKET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, and `S3_REGION` using environment variables.
-- For production: add authentication/role-based authorization, CSRF/CORS policy, rate limits, malware scanning, retention policy, backups, monitoring, and formal privacy review.
+This is a practical foundation, not yet a production-hardened student information system.
