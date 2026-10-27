@@ -24,6 +24,7 @@ class Student(Base):
     email: Mapped[str] = mapped_column(String(150), default="")
     parent_name: Mapped[str] = mapped_column(String(150), default="")
     address: Mapped[str] = mapped_column(Text, default="")
+    blood_group: Mapped[str] = mapped_column(String(10), default="")
     previous_school: Mapped[str] = mapped_column(String(200), default="")
     tenth_mark: Mapped[float | None] = mapped_column(Float, nullable=True)
     tenth_percentage: Mapped[float | None] = mapped_column(Float, nullable=True)

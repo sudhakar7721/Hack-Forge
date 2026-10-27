@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from sqlalchemy import select, func
+from sqlalchemy import select, func, text
 from passlib.context import CryptContext
 from .database import Base, engine, get_db, SessionLocal
 from .models import User, Student, Alumni
@@ -13,6 +13,11 @@ app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173","http:
                    allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
 Base.metadata.create_all(bind=engine)
+# Lightweight migration for databases created before blood_group was added.
+with engine.begin() as conn:
+    columns = [row[1] for row in conn.execute(text("PRAGMA table_info(students)"))]
+    if "blood_group" not in columns:
+        conn.execute(text("ALTER TABLE students ADD COLUMN blood_group VARCHAR(10) NOT NULL DEFAULT ''"))
 
 DEMO_USERS = [
     ("student", "student-50", "student", "Demo Student", "9000000050"),
@@ -28,19 +33,17 @@ def seed():
             if not user:
                 db.add(User(username=username, password_hash=pwd.hash(password), role=role, display_name=name, phone=phone))
         db.commit()
+        # Keep the starter demo to one unified student record, not a separate sample applicant.
+        db.query(Student).filter(Student.application_number == "MTR-2026-0002").delete(synchronize_session=False)
         if db.scalar(select(func.count(Student.id))) == 0:
-            db.add_all([
-                Student(full_name="Demo Student", phone="9000000050", email="student@example.test",
-                        parent_name="Demo Parent", application_number="MTR-2026-0001",
-                        applied_domain="Arts & Science", application_status="Approved",
-                        college="Demo Arts & Science College", course="B.Sc. Computer Science",
-                        academic_year="2026-27", residence_type="Day Scholar", mentor_name="Demo Mentor",
-                        anchor_name="Demo Anchor", zone_incharge="Zone 1", tenth_percentage=88.0,
-                        twelfth_percentage=91.0, previous_school="Demo Higher Secondary School"),
-                Student(full_name="Sample Applicant", phone="9000000051", email="applicant@example.test",
-                        application_number="MTR-2026-0002", applied_domain="Engineering",
-                        application_status="Waiting List")
-            ])
+            db.add(Student(full_name="Demo Student", phone="9000000050", email="student@example.test",
+                           parent_name="Demo Parent", application_number="MTR-2026-0001",
+                           applied_domain="Arts & Science", application_status="Approved",
+                           college="Demo Arts & Science College", course="B.Sc. Computer Science",
+                           academic_year="2026-27", residence_type="Day Scholar", mentor_name="Demo Mentor",
+                           anchor_name="Demo Anchor", zone_incharge="Zone 1", tenth_percentage=88.0,
+                           twelfth_percentage=91.0, previous_school="Demo Higher Secondary School",
+                           blood_group="Not added"))
         db.commit()
     finally:
         db.close()

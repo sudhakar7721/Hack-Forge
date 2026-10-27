@@ -15,6 +15,7 @@ class StudentIn(BaseModel):
     email: str = ""
     parent_name: str = ""
     address: str = ""
+    blood_group: str = ""
     previous_school: str = ""
     tenth_mark: Optional[float] = None
     tenth_percentage: Optional[float] = None
