@@ -39,6 +39,8 @@ npm run dev
 ```
 Open the URL Vite prints (normally http://localhost:5173).
 
+The frontend dependencies are declared in `frontend/package.json`; run `npm install` before `npm run dev`. The Maatram Foundation logo is included in `frontend/public/maatram-logo-4k.png`. Student CGPA and academic entries currently shown as samples are demonstration data, not verified academic results.
+
 If Node/Vite reports native-binding errors, use Node.js 22 LTS, delete `frontend/node_modules`, then run `npm install` again.
 
 ## Database
