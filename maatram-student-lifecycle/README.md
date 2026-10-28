@@ -12,12 +12,9 @@ A full-stack starter platform for managing the student journey from application 
 > Important: Demo credentials and OTP flow are for local demonstration only. The forgot-password OTP is a development demo (OTP `123456`); it does not send SMS. Before real use, integrate an SMS provider, add verified phone ownership, rate limits, secure deployment, backups, privacy consent, and professional security review. Use synthetic data while testing.
 
 ## Demo logins
-| Role | Username | Password |
-|---|---|---|
-| Student | `student` | `student-50` |
-| Alumni | `alumni` | `alumni-100` |
-| Admin | `admin` | `admin-5` |
-| Core Members | `core` | `core-12` |
+The full 55-account demo credential list is supplied in `Maatram_Login_Credentials.pdf` at the project root. There are 40 student accounts, 5 admin accounts (4 zone admins plus 1 system admin), and 10 core-team accounts. The legacy alumni demo account remains available: `alumni` / `alumni-100`.
+
+The credentials are predictable demo credentials intended only for local testing. Change them before any shared deployment.
 
 ## Run on Windows (PowerShell)
 ### 1. Backend
