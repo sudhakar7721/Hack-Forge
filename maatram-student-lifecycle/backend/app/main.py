@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select, func, text
 from passlib.context import CryptContext
 from .database import Base, engine, get_db, SessionLocal
-from .models import User, Student, Alumni
+from .models import User, Student, Alumni, ZoneInformation, StudentFeedback
 from .schemas import LoginIn, StudentIn, AlumniIn
 
 app = FastAPI(title="Maatram - Student Lifecycle API", version="1.0.0",
@@ -116,6 +116,23 @@ def seed():
         db.commit()
     finally:
         db.close()
+# Additive SQLite migration for expanded profile fields; existing student data is retained.
+with engine.begin() as conn:
+    existing = {row[1] for row in conn.execute(text("PRAGMA table_info(students)"))}
+    additions = {
+        "registration_number":"VARCHAR(80) NOT NULL DEFAULT ''", "department":"VARCHAR(150) NOT NULL DEFAULT ''",
+        "passed_out_year":"VARCHAR(20) NOT NULL DEFAULT ''", "semester_details":"TEXT NOT NULL DEFAULT '[]'",
+        "current_cgpa":"VARCHAR(20) NOT NULL DEFAULT ''", "completed_courses":"TEXT NOT NULL DEFAULT '[]'", "certificate_files":"TEXT NOT NULL DEFAULT '[]'",
+        "internship_details":"TEXT NOT NULL DEFAULT ''", "skills":"TEXT NOT NULL DEFAULT ''",
+        "resume_url":"TEXT NOT NULL DEFAULT ''", "project_details":"TEXT NOT NULL DEFAULT ''",
+        "linkedin_url":"TEXT NOT NULL DEFAULT ''", "github_url":"TEXT NOT NULL DEFAULT ''",
+        "volunteering_details":"TEXT NOT NULL DEFAULT '[]'", "zone_name":"VARCHAR(100) NOT NULL DEFAULT ''",
+        "spoc_name":"VARCHAR(150) NOT NULL DEFAULT ''"
+    }
+    for col, definition in additions.items():
+        if col not in existing:
+            conn.execute(text(f"ALTER TABLE students ADD COLUMN {col} {definition}"))
+
 seed()
 
 def student_dict(s):
@@ -219,3 +236,48 @@ def update_alumni(alumni_id: int, data: AlumniIn, db: Session = Depends(get_db))
     for k,v in data.model_dump().items(): setattr(a,k,v)
     db.commit(); db.refresh(a)
     return alumni_dict(a)
+
+
+@app.get("/api/informations")
+def get_informations(zone: str = Query(default=""), db: Session = Depends(get_db)):
+    stmt = select(ZoneInformation).order_by(ZoneInformation.created_at.desc())
+    if zone: stmt = stmt.where(ZoneInformation.zone_name == zone)
+    return [{c.name:getattr(x,c.name) for c in x.__table__.columns} for x in db.scalars(stmt).all()]
+
+@app.post("/api/informations")
+def post_information(payload: dict, db: Session = Depends(get_db)):
+    required = str(payload.get("title","")).strip()
+    if not required: raise HTTPException(400,"Information title is required")
+    item = ZoneInformation(zone_name=str(payload.get("zone_name","")).strip(),
+        sender_name=str(payload.get("sender_name","")), sender_role=str(payload.get("sender_role","")),
+        title=required, message=str(payload.get("message","")), link=str(payload.get("link","")),
+        attachment_name=str(payload.get("attachment_name","")), attachment_data=str(payload.get("attachment_data","")))
+    db.add(item); db.commit(); db.refresh(item)
+    return {c.name:getattr(item,c.name) for c in item.__table__.columns}
+
+@app.get("/api/feedback")
+def get_feedback(zone: str = Query(default=""), db: Session = Depends(get_db)):
+    stmt = select(StudentFeedback).order_by(StudentFeedback.created_at.desc())
+    if zone: stmt = stmt.where(StudentFeedback.zone_name == zone)
+    return [{c.name:getattr(x,c.name) for c in x.__table__.columns} for x in db.scalars(stmt).all()]
+
+@app.post("/api/feedback")
+def post_feedback(payload: dict, db: Session = Depends(get_db)):
+    message = str(payload.get("message","")).strip()
+    student_id = payload.get("student_id")
+    if not message or not student_id: raise HTTPException(400,"Feedback message and student ID are required")
+    student = db.get(Student, int(student_id))
+    if not student: raise HTTPException(404,"Student not found")
+    item = StudentFeedback(student_id=student.id, zone_name=student.zone_name or student.zone_incharge,
+        student_name=student.full_name, message=message)
+    db.add(item); db.commit(); db.refresh(item)
+    return {"id":item.id,"message":"Feedback sent to your zone team"}
+
+@app.put("/api/students/{student_id}/assignment")
+def assign_student(student_id: int, payload: dict, db: Session = Depends(get_db)):
+    student=db.get(Student,student_id)
+    if not student: raise HTTPException(404,"Student not found")
+    for key in ["zone_name","zone_incharge","college","department","anchor_name","mentor_name","spoc_name"]:
+        if key in payload: setattr(student,key,str(payload[key] or ""))
+    db.commit(); db.refresh(student)
+    return student_dict(student)

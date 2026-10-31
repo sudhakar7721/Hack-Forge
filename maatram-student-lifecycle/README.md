@@ -1,6 +1,6 @@
 # Maatram - Student Lifecycle
 
-A full-stack starter platform for managing the student journey from application to alumni.
+A full-stack Maatram student and alumni community platform. Existing lifecycle, admin, core-team and career features are retained while adding academic profiles and zone communication.
 
 ## Stack
 - Frontend: React + Vite
@@ -36,7 +36,7 @@ npm run dev
 ```
 Open the URL Vite prints (normally http://localhost:5173).
 
-The frontend dependencies are declared in `frontend/package.json`; run `npm install` before `npm run dev`. The Maatram Foundation logo is included in `frontend/public/maatram-logo-4k.png`. Student CGPA and academic entries currently shown as samples are demonstration data, not verified academic results.
+The frontend dependencies are declared in `frontend/package.json`; run `npm install` before `npm run dev`. The Maatram Foundation logo is included in `frontend/public/maatram-logo-4k.png` and links to https://www.maatramfoundation.com/. Student CGPA and academic entries currently shown as samples are demonstration data, not verified academic results.
 
 If Node/Vite reports native-binding errors, use Node.js 22 LTS, delete `frontend/node_modules`, then run `npm install` again.
 
@@ -48,7 +48,10 @@ SQLite database is created automatically at `backend/maatram.db`. Set `DATABASE_
 - Four role-specific sign-in types and dashboards
 - Demo credentials above
 - Forgot password demo flow (phone number + demo OTP)
-- Student profile, application, admission, academics, mentoring, fee, activities and volunteering fields
+- Expanded student academic profile: registration number, college, department, passed-out year, semester marks, CGPA, courses/certificates, internship, skills, resume, projects and social profiles
+- Student zone information, shared document/link notices, feedback to zone incharge and volunteering updates
+- Alumni/student directory, zone information broadcasts, zone feedback view and editable student-to-zone/team assignments
+- Existing application/admission records remain available to admin/core team; the student navigation no longer displays Application & Admission
 - Alumni placement/company information and linked student details
 - Admin and core team workspaces with management summaries
 - Student list and create/update APIs
@@ -56,3 +59,11 @@ SQLite database is created automatically at `backend/maatram.db`. Set `DATABASE_
 - Responsive yellow/black/white UI
 
 This is a practical foundation, not yet a production-hardened student information system.
+
+## Added zone and academic features
+- Student menu: Dashboard, My Details, Academics, Volunteering, Informations, Notifications and Feedback. Application & Admission is hidden from the student workspace; existing admin/core application management remains.
+- Academic profile fields can be edited from the student Academics page. Semester subject/mark entries can be added; resume and course certificate uploads are limited to 4 MB per file in the browser.
+- Zone messages support a title, message, external URL (Google Forms/Meet/group links) and one attached file. Attachments are stored as Base64 in SQLite in this demo, so use small files and configure production object storage before deployment.
+- Feedback is saved in the database and can be viewed by zone. Student notifications currently display in the app; actual phone SMS/push delivery is **not configured**. Integrate and verify an SMS/push provider before promising phone notifications.
+- Zone/team assignment is editable in Assign Students. Assignments appear in the student academic/profile details.
+- The API is a development starter, not production-secure: add authenticated role/zone authorization, audit logs, secure file storage, backups, HTTPS, consent and privacy review before using real student data. Demo login and OTP credentials must be replaced.

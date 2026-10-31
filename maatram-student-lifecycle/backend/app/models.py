@@ -53,6 +53,23 @@ class Student(Base):
     tv_volunteering: Mapped[str] = mapped_column(Text, default="")
     school_visits: Mapped[str] = mapped_column(Text, default="")
     other_volunteering: Mapped[str] = mapped_column(Text, default="")
+    # Expanded academic, career and zone assignment profile
+    registration_number: Mapped[str] = mapped_column(String(80), default="")
+    department: Mapped[str] = mapped_column(String(150), default="")
+    passed_out_year: Mapped[str] = mapped_column(String(20), default="")
+    semester_details: Mapped[str] = mapped_column(Text, default="[]")
+    current_cgpa: Mapped[str] = mapped_column(String(20), default="")
+    completed_courses: Mapped[str] = mapped_column(Text, default="[]")
+    certificate_files: Mapped[str] = mapped_column(Text, default="[]")
+    internship_details: Mapped[str] = mapped_column(Text, default="")
+    skills: Mapped[str] = mapped_column(Text, default="")
+    resume_url: Mapped[str] = mapped_column(Text, default="")
+    project_details: Mapped[str] = mapped_column(Text, default="")
+    linkedin_url: Mapped[str] = mapped_column(Text, default="")
+    github_url: Mapped[str] = mapped_column(Text, default="")
+    volunteering_details: Mapped[str] = mapped_column(Text, default="[]")
+    zone_name: Mapped[str] = mapped_column(String(100), default="")
+    spoc_name: Mapped[str] = mapped_column(String(150), default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 class Alumni(Base):
@@ -66,3 +83,26 @@ class Alumni(Base):
     job_title: Mapped[str] = mapped_column(String(150), default="")
     work_location: Mapped[str] = mapped_column(String(150), default="")
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class ZoneInformation(Base):
+    __tablename__ = "zone_information"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    zone_name: Mapped[str] = mapped_column(String(100), index=True, default="")
+    sender_name: Mapped[str] = mapped_column(String(150), default="")
+    sender_role: Mapped[str] = mapped_column(String(50), default="")
+    title: Mapped[str] = mapped_column(String(200), default="")
+    message: Mapped[str] = mapped_column(Text, default="")
+    link: Mapped[str] = mapped_column(Text, default="")
+    attachment_name: Mapped[str] = mapped_column(String(255), default="")
+    attachment_data: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+class StudentFeedback(Base):
+    __tablename__ = "student_feedback"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    student_id: Mapped[int] = mapped_column(ForeignKey("students.id"), index=True)
+    zone_name: Mapped[str] = mapped_column(String(100), index=True, default="")
+    student_name: Mapped[str] = mapped_column(String(150), default="")
+    message: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
