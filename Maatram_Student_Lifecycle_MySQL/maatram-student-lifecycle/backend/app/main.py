@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from sqlalchemy import select, func, text
+from sqlalchemy import select, func, text, inspect
 from passlib.context import CryptContext
 from .database import Base, engine, get_db, SessionLocal
 from .models import User, Student, Alumni, ZoneInformation, StudentFeedback
@@ -12,12 +12,61 @@ app = FastAPI(title="Maatram - Student Lifecycle API", version="1.0.0",
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173","http://127.0.0.1:5173"],
                    allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Create any missing tables, then apply additive schema updates for existing databases.
+# This uses SQLAlchemy inspection and portable ALTER TABLE statements instead of SQLite PRAGMA.
 Base.metadata.create_all(bind=engine)
-# Lightweight migration for databases created before blood_group was added.
-with engine.begin() as conn:
-    columns = [row[1] for row in conn.execute(text("PRAGMA table_info(students)"))]
-    if "blood_group" not in columns:
-        conn.execute(text("ALTER TABLE students ADD COLUMN blood_group VARCHAR(10) NOT NULL DEFAULT ''"))
+
+
+def migrate_student_schema():
+    inspector = inspect(engine)
+    if "students" not in inspector.get_table_names():
+        return
+
+    existing = {column["name"] for column in inspector.get_columns("students")}
+    additions = {
+        "blood_group": ("VARCHAR(10) NOT NULL DEFAULT ''", ""),
+        "registration_number": ("VARCHAR(80) NOT NULL DEFAULT ''", ""),
+        "department": ("VARCHAR(150) NOT NULL DEFAULT ''", ""),
+        "passed_out_year": ("VARCHAR(20) NOT NULL DEFAULT ''", ""),
+        "semester_details": ("TEXT NULL", "[]"),
+        "current_cgpa": ("VARCHAR(20) NOT NULL DEFAULT ''", ""),
+        "completed_courses": ("TEXT NULL", "[]"),
+        "certificate_files": ("TEXT NULL", "[]"),
+        "internship_details": ("TEXT NULL", ""),
+        "skills": ("TEXT NULL", ""),
+        "resume_url": ("TEXT NULL", ""),
+        "project_details": ("TEXT NULL", ""),
+        "linkedin_url": ("TEXT NULL", ""),
+        "github_url": ("TEXT NULL", ""),
+        "volunteering_details": ("TEXT NULL", "[]"),
+        "zone_name": ("VARCHAR(100) NOT NULL DEFAULT ''", ""),
+        "spoc_name": ("VARCHAR(150) NOT NULL DEFAULT ''", ""),
+    }
+
+    with engine.begin() as conn:
+        for column_name, (column_definition, empty_value) in additions.items():
+            was_added = column_name not in existing
+            if was_added:
+                conn.execute(text(
+                    f"ALTER TABLE students ADD COLUMN `{column_name}` {column_definition}"
+                ))
+                existing.add(column_name)
+
+                # Backfill older records only when this column is first introduced.
+                conn.execute(
+                    text(f"UPDATE students SET `{column_name}` = :empty_value "
+                         f"WHERE `{column_name}` IS NULL"),
+                    {"empty_value": empty_value},
+                )
+
+                # Text columns are made NOT NULL after existing rows are backfilled.
+                if column_definition == "TEXT NULL":
+                    conn.execute(text(
+                        f"ALTER TABLE students MODIFY COLUMN `{column_name}` TEXT NOT NULL"
+                    ))
+
+
+migrate_student_schema()
 
 # Demo credentials are for local testing only. Do not use these passwords in production.
 # 40 students are split evenly across four zones. Four zone admins each own exactly one zone;
@@ -78,61 +127,46 @@ def seed():
             zone = ((number - 1) // 10) + 1
             zone_admin = next(a[2] for a in ADMINS if a[4] == f"Zone {zone}")
             if student is None:
+                # Seed demo profile data only for a newly-created demo student.
+                # Never overwrite an existing student profile during startup or database migration.
                 student = Student(user_id=user.id)
                 db.add(student)
-            student.user_id = user.id
-            student.full_name = user.display_name
-            student.age = 18 + (number % 4)
-            student.dob = f"200{number % 6 + 2}-{(number % 12)+1:02d}-{(number % 27)+1:02d}"
-            student.phone = user.phone
-            student.email = f"student{number:02d}@example.test"
-            student.parent_name = f"Parent of {user.display_name}"
-            student.address = f"Sample Street, Zone {zone}, Chennai, Tamil Nadu"
-            student.blood_group = ["A+", "B+", "O+", "AB+", "A-", "O-"][number % 6]
-            student.previous_school = f"Zone {zone} Higher Secondary School"
-            student.tenth_mark = float(400 + (number % 90))
-            student.tenth_percentage = round(75 + (number % 24) * 0.9, 1)
-            student.twelfth_mark = float(430 + (number % 120))
-            student.twelfth_percentage = round(78 + (number % 21) * 0.9, 1)
-            student.higher_secondary_group = ["Computer Science", "Biology-Maths", "Commerce", "Arts"][number % 4]
-            student.applied_domain = "Arts & Science" if number % 2 else "Engineering"
-            student.application_number = f"MTR-2026-{number:04d}"
-            student.application_status = "Approved" if number % 3 else "Waiting List"
-            student.college = "Demo Arts & Science College" if student.application_status == "Approved" else ""
-            student.course = "B.Sc. Computer Science" if student.application_status == "Approved" else ""
-            student.academic_year = "2026-27"
-            student.residence_type = "Day Scholar"
-            student.mentor_name = f"Mentor Zone {zone}"
-            student.anchor_name = f"Anchor Zone {zone}"
-            student.zone_incharge = zone_admin
-            student.academic_details = f"Sample semester CGPA: {7.2 + (number % 15) / 10:.1f}/10; status: Demo data"
-            student.self_learning_details = "Python basics; communication skills (sample)"
-            student.activities = "Orientation and peer learning (sample)"
-            student.pv_volunteering = f"PV completed: {number % 4}; sample records"
-            student.tv_volunteering = f"TV completed: {number % 3}; sample records"
-            student.school_visits = f"School visits: {number % 5}; sample records"
-        # Remove only the old duplicate sample applicant, if present.
-        db.query(Student).filter(Student.application_number == "MTR-2026-0002", Student.user_id.is_(None)).delete(synchronize_session=False)
+                student.full_name = user.display_name
+                student.age = 18 + (number % 4)
+                student.dob = f"200{number % 6 + 2}-{(number % 12)+1:02d}-{(number % 27)+1:02d}"
+                student.phone = user.phone
+                student.email = f"student{number:02d}@example.test"
+                student.parent_name = f"Parent of {user.display_name}"
+                student.address = f"Sample Street, Zone {zone}, Chennai, Tamil Nadu"
+                student.blood_group = ["A+", "B+", "O+", "AB+", "A-", "O-"][number % 6]
+                student.previous_school = f"Zone {zone} Higher Secondary School"
+                student.tenth_mark = float(400 + (number % 90))
+                student.tenth_percentage = round(75 + (number % 24) * 0.9, 1)
+                student.twelfth_mark = float(430 + (number % 120))
+                student.twelfth_percentage = round(78 + (number % 21) * 0.9, 1)
+                student.higher_secondary_group = ["Computer Science", "Biology-Maths", "Commerce", "Arts"][number % 4]
+                student.applied_domain = "Arts & Science" if number % 2 else "Engineering"
+                student.application_number = f"MTR-2026-{number:04d}"
+                student.application_status = "Approved" if number % 3 else "Waiting List"
+                student.college = "Demo Arts & Science College" if student.application_status == "Approved" else ""
+                student.course = "B.Sc. Computer Science" if student.application_status == "Approved" else ""
+                student.academic_year = "2026-27"
+                student.residence_type = "Day Scholar"
+                student.mentor_name = f"Mentor Zone {zone}"
+                student.anchor_name = f"Anchor Zone {zone}"
+                student.zone_incharge = zone_admin
+                student.academic_details = f"Sample semester CGPA: {7.2 + (number % 15) / 10:.1f}/10; status: Demo data"
+                student.self_learning_details = "Python basics; communication skills (sample)"
+                student.activities = "Orientation and peer learning (sample)"
+                student.pv_volunteering = f"PV completed: {number % 4}; sample records"
+                student.tv_volunteering = f"TV completed: {number % 3}; sample records"
+                student.school_visits = f"School visits: {number % 5}; sample records"
+            elif student.user_id is None:
+                # Link the legacy demo profile without replacing its existing information.
+                student.user_id = user.id
         db.commit()
     finally:
         db.close()
-# Additive SQLite migration for expanded profile fields; existing student data is retained.
-with engine.begin() as conn:
-    existing = {row[1] for row in conn.execute(text("PRAGMA table_info(students)"))}
-    additions = {
-        "registration_number":"VARCHAR(80) NOT NULL DEFAULT ''", "department":"VARCHAR(150) NOT NULL DEFAULT ''",
-        "passed_out_year":"VARCHAR(20) NOT NULL DEFAULT ''", "semester_details":"TEXT NOT NULL DEFAULT '[]'",
-        "current_cgpa":"VARCHAR(20) NOT NULL DEFAULT ''", "completed_courses":"TEXT NOT NULL DEFAULT '[]'", "certificate_files":"TEXT NOT NULL DEFAULT '[]'",
-        "internship_details":"TEXT NOT NULL DEFAULT ''", "skills":"TEXT NOT NULL DEFAULT ''",
-        "resume_url":"TEXT NOT NULL DEFAULT ''", "project_details":"TEXT NOT NULL DEFAULT ''",
-        "linkedin_url":"TEXT NOT NULL DEFAULT ''", "github_url":"TEXT NOT NULL DEFAULT ''",
-        "volunteering_details":"TEXT NOT NULL DEFAULT '[]'", "zone_name":"VARCHAR(100) NOT NULL DEFAULT ''",
-        "spoc_name":"VARCHAR(150) NOT NULL DEFAULT ''"
-    }
-    for col, definition in additions.items():
-        if col not in existing:
-            conn.execute(text(f"ALTER TABLE students ADD COLUMN {col} {definition}"))
-
 seed()
 
 def student_dict(s):

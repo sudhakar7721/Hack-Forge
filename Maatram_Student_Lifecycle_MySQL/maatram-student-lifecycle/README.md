@@ -5,7 +5,7 @@ A full-stack Maatram student and alumni community platform. Existing lifecycle, 
 ## Stack
 - Frontend: React + Vite
 - Backend: Python + FastAPI
-- Database: SQLAlchemy + SQLite by default (change `DATABASE_URL` for PostgreSQL/MySQL)
+- Database: MySQL 8+ via SQLAlchemy and PyMySQL
 - Authentication: demo role-based login; passwords are hashed in the database
 - Theme: yellow, black, white
 
@@ -41,8 +41,31 @@ The frontend dependencies are declared in `frontend/package.json`; run `npm inst
 If Node/Vite reports native-binding errors, use Node.js 22 LTS, delete `frontend/node_modules`, then run `npm install` again.
 
 ## Database
-SQLite database is created automatically at `backend/maatram.db`. Set `DATABASE_URL` before starting FastAPI to use another SQL database, for example:
-`DATABASE_URL=sqlite:///./maatram.db`
+MySQL is the configured database. Install MySQL Server and create the database. From the `backend` folder, copy the environment template and edit the password:
+
+```sql
+CREATE DATABASE maatram_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Open `.env` and set:
+
+```env
+DATABASE_URL=mysql+pymysql://root:YOUR_MYSQL_PASSWORD@127.0.0.1:3306/maatram_db?charset=utf8mb4
+```
+
+Install backend dependencies with `pip install -r requirements.txt`. The application creates missing tables and applies additive student-profile schema updates at startup. Existing records are not deleted by the schema update.
+
+If you already have an older SQLite database (`backend/maatram.db`) and want to copy its records into MySQL, first ensure the target MySQL tables are empty, then run this from the `backend` directory:
+
+```powershell
+python migrate_sqlite_to_mysql.py .\maatram.db
+```
+
+The migration script copies matching records and stops if target tables already contain data. Keep a backup of the SQLite file until you have verified the MySQL data.
 
 ## Features in this starter
 - Four role-specific sign-in types and dashboards
@@ -63,7 +86,7 @@ This is a practical foundation, not yet a production-hardened student informatio
 ## Added zone and academic features
 - Student menu: Dashboard, My Details, Academics, Volunteering, Informations, Notifications and Feedback. Application & Admission is hidden from the student workspace; existing admin/core application management remains.
 - Academic profile fields can be edited from the student Academics page. Semester subject/mark entries can be added; resume and course certificate uploads are limited to 4 MB per file in the browser.
-- Zone messages support a title, message, external URL (Google Forms/Meet/group links) and one attached file. Attachments are stored as Base64 in SQLite in this demo, so use small files and configure production object storage before deployment.
+- Zone messages support a title, message, external URL (Google Forms/Meet/group links) and one attached file. Attachments are stored as Base64 in MySQL in this demo, so use small files and configure production object storage before deployment.
 - Feedback is saved in the database and can be viewed by zone. Student notifications currently display in the app; actual phone SMS/push delivery is **not configured**. Integrate and verify an SMS/push provider before promising phone notifications.
 - Zone/team assignment is editable in Assign Students. Assignments appear in the student academic/profile details.
 - The API is a development starter, not production-secure: add authenticated role/zone authorization, audit logs, secure file storage, backups, HTTPS, consent and privacy review before using real student data. Demo login and OTP credentials must be replaced.
