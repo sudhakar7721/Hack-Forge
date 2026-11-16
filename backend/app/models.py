@@ -13,7 +13,7 @@ from sqlalchemy import (
     func,
 )
 
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, synonym
 
 from .database import Base
 
@@ -45,6 +45,9 @@ class User(Base):
         nullable=False
     )
 
+    # Compatibility with main.py
+    username = synonym("email")
+
     phone: Mapped[str] = mapped_column(
         String(20),
         unique=True,
@@ -55,6 +58,9 @@ class User(Base):
         String(255),
         nullable=False
     )
+
+    # Compatibility with main.py
+    password_hash = synonym("hashed_password")
 
     role: Mapped[str] = mapped_column(
         String(30),
