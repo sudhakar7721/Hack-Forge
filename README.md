@@ -1,92 +1,92 @@
-# Maatram - Student Lifecycle
+# Maatram Student Lifecycle Platform — cleaned & repaired
 
-A full-stack Maatram student and alumni community platform. Existing lifecycle, admin, core-team and career features are retained while adding academic profiles and zone communication.
+This package contains the original frontend and backend, with the source files retained and the broken field mappings repaired. Generated dependency/cache folders and the private `.env` file are not included.
 
-## Stack
-- Frontend: React + Vite
-- Backend: Python + FastAPI
-- Database: MySQL 8+ via SQLAlchemy and PyMySQL
-- Authentication: demo role-based login; passwords are hashed in the database
-- Theme: yellow, black, white
+## Requirements
 
-> Important: Demo credentials and OTP flow are for local demonstration only. The forgot-password OTP is a development demo (OTP `123456`); it does not send SMS. Before real use, integrate an SMS provider, add verified phone ownership, rate limits, secure deployment, backups, privacy consent, and professional security review. Use synthetic data while testing.
+- Windows 10/11
+- Python 3.12 recommended
+- Node.js 20+ and npm
+- MySQL Server 8.x (or another compatible MySQL version)
 
-## Demo logins
-The full 55-account demo credential list is supplied in `Maatram_Login_Credentials.pdf` at the project root. There are 40 student accounts, 5 admin accounts (4 zone admins plus 1 system admin), and 10 core-team accounts. The legacy alumni demo account remains available: `alumni` / `alumni-100`.
+## 1. Prepare MySQL
 
-The credentials are predictable demo credentials intended only for local testing. Change them before any shared deployment.
+Open MySQL Workbench or the MySQL command line and run:
 
-## Run on Windows (PowerShell)
-### 1. Backend
-Open terminal:
-```powershell
-cd backend
-py -m venv .venv
-.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-uvicorn app.main:app --reload
+```sql
+CREATE DATABASE IF NOT EXISTS maatram_student_lifecycle
+  CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
-API docs: http://127.0.0.1:8000/docs
 
-### 2. Frontend (second terminal)
+## 2. Start the backend
+
+Open a terminal in `backend`:
+
 ```powershell
-cd frontend
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+copy .env.example .env
+```
+
+Edit `backend/.env` and replace `YOUR_MYSQL_PASSWORD` with your MySQL password. Keep this private; never share the `.env` file.
+
+Start the API:
+
+```powershell
+python -m uvicorn app.main:app --reload
+```
+
+The API documentation is at `http://127.0.0.1:8000/docs` and health check at `http://127.0.0.1:8000/api/health`.
+
+The app upgrades existing tables additively on startup. It does not intentionally drop tables or records. Back up your database before first startup against an existing database.
+
+## 3. Start the frontend
+
+Open a second terminal in `frontend`:
+
+```powershell
 npm install
 npm run dev
 ```
-Open the URL Vite prints (normally http://localhost:5173).
 
-The frontend dependencies are declared in `frontend/package.json`; run `npm install` before `npm run dev`. The Maatram Foundation logo is included in `frontend/public/maatram-logo-4k.png` and links to https://www.maatramfoundation.com/. Student CGPA and academic entries currently shown as samples are demonstration data, not verified academic results.
+Open `http://localhost:5173`.
 
-If Node/Vite reports native-binding errors, use Node.js 22 LTS, delete `frontend/node_modules`, then run `npm install` again.
+## Demo login
 
-## Database
-MySQL is the configured database. Install MySQL Server and create the database. From the `backend` folder, copy the environment template and edit the password:
+Choose the matching role in the login page:
 
-```sql
-CREATE DATABASE maatram_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-```
+| Role | Username | Password |
+|---|---|---|
+| Student | `student` | `student-50` |
+| Alumni | `alumni` | `alumni-100` |
+| Admin | `admin` | `admin-5` |
+| Core Member | `core` | `core-12` |
 
-```powershell
-Copy-Item .env.example .env
-```
+The demo seed also includes zone admins, more core-member accounts, and student accounts. Demo passwords and the fixed OTP are for local testing only. Real SMS OTP, production authentication, and authorization protections must be integrated before deployment.
 
-Open `.env` and set:
+## SQLite-to-MySQL migration (optional)
 
-```env
-DATABASE_URL=mysql+pymysql://root:YOUR_MYSQL_PASSWORD@127.0.0.1:3306/maatram_db?charset=utf8mb4
-```
-
-Install backend dependencies with `pip install -r requirements.txt`. The application creates missing tables and applies additive student-profile schema updates at startup. Existing records are not deleted by the schema update.
-
-If you already have an older SQLite database (`backend/maatram.db`) and want to copy its records into MySQL, first ensure the target MySQL tables are empty, then run this from the `backend` directory:
+If you have a legacy SQLite database and want to copy it into an empty MySQL target, configure `.env` first and run this from the backend folder:
 
 ```powershell
-python migrate_sqlite_to_mysql.py .\maatram.db
+python migrate_sqlite_to_mysql.py path\to\maatram.db
 ```
 
-The migration script copies matching records and stops if target tables already contain data. Keep a backup of the SQLite file until you have verified the MySQL data.
+The script refuses to copy into target tables that already contain data.
 
-## Features in this starter
-- Four role-specific sign-in types and dashboards
-- Demo credentials above
-- Forgot password demo flow (phone number + demo OTP)
-- Expanded student academic profile: registration number, college, department, passed-out year, semester marks, CGPA, courses/certificates, internship, skills, resume, projects and social profiles
-- Student zone information, shared document/link notices, feedback to zone incharge and volunteering updates
-- Alumni/student directory, zone information broadcasts, zone feedback view and editable student-to-zone/team assignments
-- Existing application/admission records remain available to admin/core team; the student navigation no longer displays Application & Admission
-- Alumni placement/company information and linked student details
-- Admin and core team workspaces with management summaries
-- Student list and create/update APIs
-- SQL persistence and hashed demo passwords
-- Responsive yellow/black/white UI
+## Modules retained
 
-This is a practical foundation, not yet a production-hardened student information system.
+- Role-based login (Student, Alumni, Admin, Core Members)
+- Student profiles and directory
+- Application / admission details and verification notes
+- Academic records, semester marks, course certificates, internship, skills, projects, resume and profile links
+- Volunteering (PV, TV, school visits and other activities)
+- Alumni career directory and placement fields
+- Zone assignment
+- Zone information, notices and attachments
+- Student feedback
+- Dashboard, reports, activities and event-log placeholder pages
 
-## Added zone and academic features
-- Student menu: Dashboard, My Details, Academics, Volunteering, Informations, Notifications and Feedback. Application & Admission is hidden from the student workspace; existing admin/core application management remains.
-- Academic profile fields can be edited from the student Academics page. Semester subject/mark entries can be added; resume and course certificate uploads are limited to 4 MB per file in the browser.
-- Zone messages support a title, message, external URL (Google Forms/Meet/group links) and one attached file. Attachments are stored as Base64 in MySQL in this demo, so use small files and configure production object storage before deployment.
-- Feedback is saved in the database and can be viewed by zone. Student notifications currently display in the app; actual phone SMS/push delivery is **not configured**. Integrate and verify an SMS/push provider before promising phone notifications.
-- Zone/team assignment is editable in Assign Students. Assignments appear in the student academic/profile details.
-- The API is a development starter, not production-secure: add authenticated role/zone authorization, audit logs, secure file storage, backups, HTTPS, consent and privacy review before using real student data. Demo login and OTP credentials must be replaced.
+Some pages are existing demonstration/placeholder modules and are not described as production-complete.

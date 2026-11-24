@@ -1,14 +1,16 @@
-from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional
+from pydantic import BaseModel, ConfigDict, Field
+
 
 class LoginIn(BaseModel):
     username: str
     password: str
     role: str
 
+
 class StudentIn(BaseModel):
     model_config = ConfigDict(extra="ignore")
-    full_name: str = ""
+    full_name: str = Field(default="", max_length=160)
     age: Optional[int] = None
     dob: str = ""
     phone: str = ""
@@ -50,7 +52,7 @@ class StudentIn(BaseModel):
     semester_details: str = ""
     current_cgpa: str = ""
     completed_courses: str = ""
-    certificate_files: str = ""
+    certificate_files: str = "[]"
     internship_details: str = ""
     skills: str = ""
     resume_url: str = ""
@@ -61,7 +63,9 @@ class StudentIn(BaseModel):
     zone_name: str = ""
     spoc_name: str = ""
 
+
 class AlumniIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
     full_name: str = ""
     placed: bool = False
     current_company: str = ""
