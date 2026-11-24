@@ -90,3 +90,22 @@ The script refuses to copy into target tables that already contain data.
 - Dashboard, reports, activities and event-log placeholder pages
 
 Some pages are existing demonstration/placeholder modules and are not described as production-complete.
+
+
+## Alumni Association & Projects (new)
+
+The Alumni workspace now includes:
+
+- **My Alumni Profile** — signed-in account details plus linked student education/career information.
+- **Alumni Association** — alumni can publish skills, project interests, availability status, start date and contact details.
+- **Alumni Projects** — submit Palm Tree Plantation, School Visit, Koodukal (Sittu Kuruvi Project), Technical Team and Other Contribution activities. Activity records support date, time, place, participant/seed/unit count, GPS latitude/longitude and an optional photo (up to 3 MB).
+- **Admin – Alumni Association Management** — a consolidated view of alumni career records, availability posts and project contributions.
+
+New API routes:
+
+- `GET/POST /api/alumni/availability`
+- `GET/POST /api/alumni/projects`
+
+The new `alumni_availability` and `alumni_projects` tables are created automatically at backend startup. Existing tables and records are not dropped. The new project and availability records are stored in the configured MySQL database.
+
+**Important deployment note:** This starter's existing API does not enforce per-record authorization. Before public/production deployment, add authenticated ownership checks, admin-only access controls, file storage controls and consent/privacy rules. The GPS feature requires browser location permission and HTTPS outside localhost.

@@ -9,7 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from passlib.context import CryptContext
 
 from .database import Base, engine, get_db, SessionLocal
-from .models import User, Student, Alumni, ZoneInformation, StudentFeedback
+from .models import User, Student, Alumni, ZoneInformation, StudentFeedback, AlumniProject, AlumniAvailability
 from .schemas import LoginIn, StudentIn, AlumniIn
 
 pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -499,3 +499,63 @@ def assign_student(student_id: int, payload: dict, db: Session = Depends(get_db)
     db.commit()
     db.refresh(student)
     return student_dict(student)
+
+
+# Alumni community: project participation and availability for Maatram initiatives.
+@app.get("/api/alumni/projects")
+def get_alumni_projects(db: Session = Depends(get_db)):
+    rows = db.scalars(select(AlumniProject).order_by(AlumniProject.created_at.desc())).all()
+    return [{c.name: getattr(x, c.name) for c in x.__table__.columns} for x in rows]
+
+
+@app.post("/api/alumni/projects")
+def create_alumni_project(payload: dict, db: Session = Depends(get_db)):
+    title = str(payload.get("title", "")).strip()
+    project_type = str(payload.get("project_type", "")).strip()
+    alumni_name = str(payload.get("alumni_name", "")).strip()
+    if not title or not project_type or not alumni_name:
+        raise HTTPException(400, "Project type, title and alumni name are required")
+    try:
+        participant_count = int(payload.get("participant_count")) if payload.get("participant_count") not in (None, "") else None
+    except (TypeError, ValueError):
+        raise HTTPException(400, "Participant count must be a number")
+    item = AlumniProject(
+        project_type=project_type, title=title, alumni_user_id=payload.get("alumni_user_id"),
+        alumni_name=alumni_name, activity_date=payload.get("activity_date") or None,
+        activity_time=payload.get("activity_time") or None, place=payload.get("place") or None,
+        latitude=payload.get("latitude") or None, longitude=payload.get("longitude") or None,
+        details=payload.get("details") or None, participant_count=participant_count,
+        photo_data=payload.get("photo_data") or None, photo_name=payload.get("photo_name") or None,
+    )
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    return {c.name: getattr(item, c.name) for c in item.__table__.columns}
+
+
+@app.get("/api/alumni/availability")
+def get_alumni_availability(db: Session = Depends(get_db)):
+    rows = db.scalars(select(AlumniAvailability).order_by(AlumniAvailability.created_at.desc())).all()
+    return [{c.name: getattr(x, c.name) for c in x.__table__.columns} for x in rows]
+
+
+@app.post("/api/alumni/availability")
+def create_alumni_availability(payload: dict, db: Session = Depends(get_db)):
+    alumni_name = str(payload.get("alumni_name", "")).strip()
+    skill_area = str(payload.get("skill_area", "")).strip()
+    available_for = str(payload.get("available_for", "")).strip()
+    if not alumni_name or not skill_area or not available_for:
+        raise HTTPException(400, "Name, skill area and project availability are required")
+    item = AlumniAvailability(
+        alumni_user_id=payload.get("alumni_user_id"), alumni_name=alumni_name,
+        skill_area=skill_area, available_for=available_for,
+        availability_status=str(payload.get("availability_status") or "Available"),
+        available_from=payload.get("available_from") or None,
+        contact_email=payload.get("contact_email") or None,
+        contact_phone=payload.get("contact_phone") or None,
+        notes=payload.get("notes") or None,
+    )
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    return {c.name: getattr(item, c.name) for c in item.__table__.columns}

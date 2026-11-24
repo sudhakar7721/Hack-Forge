@@ -26,3 +26,11 @@
 - The workspace had no network access, so dependency installation could not complete.
 - The backend smoke tests used a temporary test-only password-hashing stub because Passlib/bcrypt could not be installed in this environment. Real password hashing is configured through the pinned dependencies in `requirements.txt`, but was not runtime-verified here.
 - A full Vite production build and live MySQL connection were not run; install dependencies and test on your Windows machine before using it with real data.
+
+
+## Alumni additions
+- Alumni: open My Alumni Profile, Alumni Association, and Alumni Projects.
+- Submit an availability post and verify it appears in the association board.
+- Submit each project type; test date/time, place, count, photo upload, and browser GPS permission.
+- Admin: open Alumni Association Management and verify alumni, availability, and contribution tables.
+- Backend creates `alumni_availability` and `alumni_projects` additively on startup.
